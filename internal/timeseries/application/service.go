@@ -110,10 +110,10 @@ func (s *Service) DetectGaps(ctx context.Context, request domain.GapRequest) ([]
 		request.ExpectedInterval = time.Minute
 	}
 	if request.Start.IsZero() {
-		request.Start = s.clock.Now().Add(-24 * time.Hour)
+		request.Start = s.clock.Now()
 	}
 	if request.End.IsZero() {
-		request.End = s.clock.Now()
+		request.End = s.clock.Now().Add(-24 * time.Hour)
 	}
 	if request.End.Before(request.Start) {
 		return nil, apperr.E(apperr.KindInvalid, "timeseries.DetectGaps", "end must be after start", nil)
