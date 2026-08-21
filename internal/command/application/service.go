@@ -166,11 +166,21 @@ func (s *Service) StartReaper(ctx context.Context) {
 }
 
 func (s *Service) reapExpired(ctx context.Context) {
-	commands, err := s.repo.Expired(context.Background(), s.clock.Now(), 100)
+	// Honour cancellation before any work: a stopped service must not mutate
+	// commands whose reaping was superseded by shutdown.
+	if err := ctx.Err(); err != nil {
+		return
+	}
+	commands, err := s.repo.Expired(ctx, s.clock.Now(), 100)
 	if err != nil {
 		return
 	}
 	for _, command := range commands {
+		// Re-check on every iteration so a cancellation that lands mid-loop
+		// still propagates instead of mutating the remaining commands.
+		if err := ctx.Err(); err != nil {
+			return
+		}
 		if command.IsTerminal() {
 			continue
 		}
@@ -214,7 +224,26 @@ func (s *Service) publish(ctx context.Context, eventType, subject string, payloa
 func cloneMap(in map[string]any) map[string]any {
 	out := make(map[string]any, len(in))
 	for key, value := range in {
-		out[key] = value
+		out[key] = cloneValue(value)
 	}
 	return out
+}
+
+// cloneValue returns a deep copy of the JSON-shaped values a command payload
+// can hold (maps and slices). Scalars are returned unchanged. This keeps the
+// stored payload from aliasing the caller's nested structures, so later
+// mutations to the input cannot leak into the persisted command.
+func cloneValue(value any) any {
+	switch v := value.(type) {
+	case map[string]any:
+		return cloneMap(v)
+	case []any:
+		out := make([]any, len(v))
+		for i, item := range v {
+			out[i] = cloneValue(item)
+		}
+		return out
+	default:
+		return value
+	}
 }

@@ -27,7 +27,9 @@ func NewRepository() *Repository {
 func (r *Repository) Save(_ context.Context, command domain.Command) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.commands[command.ID] = command
+	// Clone on write so the stored entry does not alias the caller's payload
+	// map; later mutations to the passed command must not leak into storage.
+	r.commands[command.ID] = cloneCommand(command)
 	r.byIdempotency[command.DeviceID+"\x00"+command.IdempotencyKey] = command.ID
 	return nil
 }
@@ -124,10 +126,33 @@ func (r *Repository) Expired(_ context.Context, before time.Time, limit int) ([]
 
 func cloneCommand(command domain.Command) domain.Command {
 	out := command
-	out.Payload = make(map[string]any, len(command.Payload))
-	for key, value := range command.Payload {
-		out.Payload[key] = value
-	}
+	out.Payload = cloneMap(command.Payload)
 	out.Audit = append([]domain.AuditEntry(nil), command.Audit...)
 	return out
+}
+
+// cloneMap deep-copies a command payload so the returned command cannot alias
+// the in-memory stored entry's nested maps or slices. Mutating a value handed
+// back to a caller must not leak into the persisted record.
+func cloneMap(in map[string]any) map[string]any {
+	out := make(map[string]any, len(in))
+	for key, value := range in {
+		out[key] = cloneValue(value)
+	}
+	return out
+}
+
+func cloneValue(value any) any {
+	switch v := value.(type) {
+	case map[string]any:
+		return cloneMap(v)
+	case []any:
+		out := make([]any, len(v))
+		for i, item := range v {
+			out[i] = cloneValue(item)
+		}
+		return out
+	default:
+		return value
+	}
 }
