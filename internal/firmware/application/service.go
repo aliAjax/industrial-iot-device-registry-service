@@ -201,9 +201,6 @@ func (s *Service) ValidateRollout(policy domain.RolloutPolicy) error {
 	if policy.Strategy != "percentage" && policy.Strategy != "device_list" && policy.Strategy != "group" {
 		return apperr.E(apperr.KindInvalid, "firmware.ValidateRollout", "unsupported rollout strategy", nil)
 	}
-	if policy.Strategy == "percentage" && (policy.Percentage <= 0 || policy.Percentage > 100) {
-		return apperr.E(apperr.KindInvalid, "firmware.ValidateRollout", "percentage must be between 0 and 100", nil)
-	}
 	if policy.MaxConcurrent < 1 {
 		return apperr.E(apperr.KindInvalid, "firmware.ValidateRollout", "max_concurrent must be positive", nil)
 	}

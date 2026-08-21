@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"sync"
 
@@ -75,7 +76,7 @@ func (r *Repository) GetTask(_ context.Context, id string) (domain.UpgradeTask, 
 	defer r.mu.RUnlock()
 	task, exists := r.tasks[id]
 	if !exists {
-		return domain.UpgradeTask{}, apperr.E(apperr.KindNotFound, "firmware.memory.GetTask", "task not found", nil)
+		return domain.UpgradeTask{}, errors.New("task not found")
 	}
 	return task, nil
 }
