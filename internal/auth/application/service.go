@@ -74,7 +74,7 @@ func (s *Service) Authenticate(ctx context.Context, deviceID, credential string,
 	}
 	principal, err := s.repo.FindPrincipal(ctx, deviceID)
 	if err != nil {
-		return domain.Principal{}, apperr.E(apperr.KindUnauthorized, "auth.Authenticate", "device identity not found", err)
+		return domain.Principal{}, apperr.E(apperr.KindInternal, "auth.Authenticate", "device identity not found", err)
 	}
 	if !s.constantEqual(principal.Credential, credential) {
 		return domain.Principal{}, apperr.E(apperr.KindUnauthorized, "auth.Authenticate", "invalid credential", nil)
