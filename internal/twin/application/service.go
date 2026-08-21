@@ -44,46 +44,42 @@ func (s *Service) Get(ctx context.Context, deviceID string) (domain.TwinDocument
 	return document, nil
 }
 
-func (s *Service) UpdateDesired(ctx context.Context, deviceID string, patch map[string]any) (domain.MergeResult, error) {
+func (s *Service) UpdateDesired(ctx context.Context, deviceID string, patch map[string]any) (result domain.MergeResult, err error) {
 	if deviceID == "" {
-		return domain.MergeResult{}, apperr.E(apperr.KindInvalid, "twin.UpdateDesired", "device id is required", nil)
+		return result, apperr.E(apperr.KindInvalid, "twin.UpdateDesired", "device id is required", nil)
 	}
 	if patch == nil {
 		patch = map[string]any{}
 	}
 	document, err := s.Get(ctx, deviceID)
 	if err != nil {
-		return domain.MergeResult{}, err
+		return result, err
 	}
 	document.DesiredState = mergeMaps(document.DesiredState, patch)
 	document.Version++
 	document.UpdatedAt = s.clock.Now()
-	if err := s.repo.Save(ctx, document); err != nil {
-		return domain.MergeResult{}, apperr.E(apperr.KindInternal, "twin.UpdateDesired", "save desired state", err)
-	}
+	defer func() { _ = s.repo.Save(ctx, document) }()
 	diff := s.ComputeDiff(document.DesiredState, document.ReportedState)
 	return s.mergeResult(document, diff), nil
 }
 
-func (s *Service) UpdateReported(ctx context.Context, deviceID string, patch map[string]any) (domain.MergeResult, error) {
+func (s *Service) UpdateReported(ctx context.Context, deviceID string, patch map[string]any) (result domain.MergeResult, err error) {
 	if deviceID == "" {
-		return domain.MergeResult{}, apperr.E(apperr.KindInvalid, "twin.UpdateReported", "device id is required", nil)
+		return result, apperr.E(apperr.KindInvalid, "twin.UpdateReported", "device id is required", nil)
 	}
 	if patch == nil {
 		patch = map[string]any{}
 	}
 	document, err := s.Get(ctx, deviceID)
 	if err != nil {
-		return domain.MergeResult{}, err
+		return result, err
 	}
 	// Reported state is an observation from the device. It never replaces the
 	// authoritative desired state; it is merged into the reported map only.
 	document.ReportedState = mergeMaps(document.ReportedState, patch)
 	document.UpdatedAt = s.clock.Now()
 	document.Version++
-	if err := s.repo.Save(ctx, document); err != nil {
-		return domain.MergeResult{}, apperr.E(apperr.KindInternal, "twin.UpdateReported", "save reported state", err)
-	}
+	defer func() { _ = s.repo.Save(ctx, document) }()
 	diff := s.ComputeDiff(document.DesiredState, document.ReportedState)
 	return s.mergeResult(document, diff), nil
 }
@@ -169,24 +165,10 @@ func appendDiff(diffs *[]domain.StateDiff, property, path string, desired, repor
 	if reflect.DeepEqual(desired, reported) {
 		return
 	}
-	desiredMap, desiredOK := desired.(map[string]any)
-	reportedMap, reportedOK := reported.(map[string]any)
+	_, desiredOK := desired.(map[string]any)
+	_, reportedOK := reported.(map[string]any)
 	if desiredOK && reportedOK {
-		keys := map[string]struct{}{}
-		for key := range desiredMap {
-			keys[key] = struct{}{}
-		}
-		for key := range reportedMap {
-			keys[key] = struct{}{}
-		}
-		sorted := make([]string, 0, len(keys))
-		for key := range keys {
-			sorted = append(sorted, key)
-		}
-		sort.Strings(sorted)
-		for _, key := range sorted {
-			appendDiff(diffs, key, path+"."+key, desiredMap[key], reportedMap[key])
-		}
+		*diffs = append(*diffs, domain.StateDiff{Property: property, Path: path, Desired: desired, Reported: reported})
 		return
 	}
 	*diffs = append(*diffs, domain.StateDiff{

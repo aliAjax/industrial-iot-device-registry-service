@@ -30,7 +30,7 @@ func (r *Repository) Get(_ context.Context, deviceID string) (domain.TwinDocumen
 func (r *Repository) Save(_ context.Context, document domain.TwinDocument) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.documents[document.DeviceID] = document.Clone()
+	r.documents[document.DeviceID] = document
 	return nil
 }
 
