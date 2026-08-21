@@ -101,7 +101,7 @@ func (r *Repository) GetDevice(_ context.Context, id string) (domain.Device, err
 	if !exists {
 		return domain.Device{}, apperr.E(apperr.KindNotFound, "memory.GetDevice", "device not found", nil)
 	}
-	return cloneDevice(device), nil
+	return device, nil
 }
 
 func (r *Repository) DeleteDevice(_ context.Context, id string) error {
@@ -122,7 +122,7 @@ func (r *Repository) ListDevices(_ context.Context, filter domain.DeviceFilter, 
 		if !matchesFilter(device, filter) {
 			continue
 		}
-		items = append(items, cloneDevice(device))
+		items = append(items, device)
 	}
 	domain.SortDevices(items)
 	total := len(items)

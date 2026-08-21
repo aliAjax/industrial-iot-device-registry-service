@@ -65,11 +65,6 @@ func (s *Service) CreateGroup(ctx context.Context, input CreateGroupInput) (doma
 	if strings.TrimSpace(input.Name) == "" {
 		return domain.Group{}, apperr.E(apperr.KindInvalid, "device.CreateGroup", "group name is required", nil)
 	}
-	if input.ParentID != "" {
-		if _, err := s.groups.GetGroup(ctx, input.ParentID); err != nil {
-			return domain.Group{}, apperr.E(apperr.KindInvalid, "device.CreateGroup", "parent group does not exist", err)
-		}
-	}
 	now := s.clock.Now()
 	group := domain.Group{
 		ID:          id.New("grp"),
@@ -208,7 +203,9 @@ func (s *Service) UpdateTags(ctx context.Context, deviceID string, tags map[stri
 	if err != nil {
 		return domain.Device{}, err
 	}
-	device.Tags = cloneTags(tags)
+	for key, value := range tags {
+		device.Tags[key] = value
+	}
 	device.UpdatedAt = s.clock.Now()
 	if err := s.devices.UpdateDevice(ctx, device); err != nil {
 		return domain.Device{}, wrap("update tags", err)
