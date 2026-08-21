@@ -166,7 +166,7 @@ func (s *Service) StartReaper(ctx context.Context) {
 }
 
 func (s *Service) reapExpired(ctx context.Context) {
-	commands, err := s.repo.Expired(ctx, s.clock.Now(), 100)
+	commands, err := s.repo.Expired(context.Background(), s.clock.Now(), 100)
 	if err != nil {
 		return
 	}

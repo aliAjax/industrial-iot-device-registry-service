@@ -27,7 +27,7 @@ func NewRepository() *Repository {
 func (r *Repository) Save(_ context.Context, command domain.Command) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.commands[command.ID] = cloneCommand(command)
+	r.commands[command.ID] = command
 	r.byIdempotency[command.DeviceID+"\x00"+command.IdempotencyKey] = command.ID
 	return nil
 }
