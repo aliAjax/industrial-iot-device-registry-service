@@ -123,10 +123,17 @@ func (s *Service) IngestBatch(ctx context.Context, messages []domain.Message) ([
 }
 
 func (s *Service) Start(ctx context.Context) {
-	s.queue.Close()
 	for i := 0; i < s.cfg.WorkerCount; i++ {
 		go s.worker(ctx, i)
 	}
+	// Close the ingest queue only once the service is shutting down, so that
+	// Ingest can keep accepting telemetry while Start is running. Closing here
+	// (rather than before spawning workers) drains the queue on shutdown and
+	// lets the workers' Recv loops exit cleanly.
+	go func() {
+		<-ctx.Done()
+		s.queue.Close()
+	}()
 }
 
 func (s *Service) QueueDepth() int {
