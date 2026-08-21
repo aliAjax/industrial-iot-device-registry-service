@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package iot.v1;
+
+option go_package = "github.com/example/iot-device-management/api/iot/v1;iotv1";
+
+service IoTService {
+  rpc Health(HealthRequest) returns (HealthResponse);
+  rpc GetDevice(DeviceRequest) returns (DeviceResponse);
+  rpc IngestTelemetry(IngestRequest) returns (IngestResponse);
+  rpc EnqueueCommand(CommandRequest) returns (CommandResponse);
+  rpc GetTwin(TwinRequest) returns (TwinResponse);
+  rpc QueryTimeSeries(TimeSeriesRequest) returns (TimeSeriesResponse);
+}
+
+message HealthRequest {}
+message HealthResponse {
+  string status = 1;
+  string service = 2;
+  string time = 3;
+}
+
+message DeviceRequest {
+  string device_id = 1;
+}
+
+message DeviceResponse {
+  bytes device = 1;
+}
+
+message IngestRequest {
+  string device_id = 1;
+  string kind = 2;
+  string timestamp = 3;
+  string data = 4;
+}
+
+message IngestResponse {
+  string message_id = 1;
+  string status = 2;
+}
+
+message CommandRequest {
+  string device_id = 1;
+  string name = 2;
+  string payload = 3;
+  string idempotency_key = 4;
+  int32 max_retries = 5;
+  int64 timeout_ns = 6;
+}
+
+message CommandResponse {
+  string command_id = 1;
+  string status = 2;
+}
+
+message TwinRequest {
+  string device_id = 1;
+}
+
+message TwinResponse {
+  string device_id = 1;
+  string desired_state = 2;
+  string reported_state = 3;
+  int64 version = 4;
+}
+
+message TimeSeriesRequest {
+  string device_id = 1;
+  string property = 2;
+  string start = 3;
+  string end = 4;
+  int32 limit = 5;
+}
+
+message TimeSeriesResponse {
+  repeated string points = 1;
+  int32 count = 2;
+}

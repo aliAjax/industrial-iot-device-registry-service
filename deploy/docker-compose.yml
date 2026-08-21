@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: iot
+      POSTGRES_PASSWORD: iot
+      POSTGRES_DB: iot
+    ports:
+      - "5432:5432"
+    volumes:
+      - iot_pgdata:/var/lib/postgresql/data
+      - ../migrations/0001_init.sql:/docker-entrypoint-initdb.d/0001_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iot -d iot"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/broker/version", "-C", "1", "-W", "2"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+volumes:
+  iot_pgdata:
