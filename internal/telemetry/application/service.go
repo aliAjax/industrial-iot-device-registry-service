@@ -123,6 +123,7 @@ func (s *Service) IngestBatch(ctx context.Context, messages []domain.Message) ([
 }
 
 func (s *Service) Start(ctx context.Context) {
+	s.queue.Close()
 	for i := 0; i < s.cfg.WorkerCount; i++ {
 		go s.worker(ctx, i)
 	}
