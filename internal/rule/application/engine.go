@@ -241,10 +241,18 @@ func (e *Engine) evaluateRule(ctx context.Context, rule domain.Rule, point tsdom
 		return apperr.E(apperr.KindInternal, "rule.evaluateRule", "save execution", err)
 	}
 	if triggered {
-		if last, ok := e.cooldown[rule.ID]; ok && e.clock.Now().Before(last.Add(rule.Cooldown)) {
+		// The cooldown check-and-set must be atomic: concurrent telemetry for the
+		// same rule can otherwise all pass the "still cooling down" guard before any
+		// of them records a cooldown, firing the action several times. Keep the
+		// critical section tight so the executor and publish calls run unlocked.
+		e.mu.Lock()
+		now := e.clock.Now()
+		if last, ok := e.cooldown[rule.ID]; ok && now.Before(last.Add(rule.Cooldown)) {
+			e.mu.Unlock()
 			return nil
 		}
-		e.cooldown[rule.ID] = e.clock.Now()
+		e.cooldown[rule.ID] = now
+		e.mu.Unlock()
 		if err := e.executor.Execute(ctx, rule, execution); err != nil {
 			return apperr.E(apperr.KindInternal, "rule.evaluateRule", "execute actions", err)
 		}
