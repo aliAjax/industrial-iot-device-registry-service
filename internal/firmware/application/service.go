@@ -149,7 +149,11 @@ func (s *Service) CompleteReceipt(ctx context.Context, receiptID string, success
 		receipt.Status = domain.StatusCompleted
 	} else {
 		receipt.Status = domain.StatusFailed
-		if task, taskErr := s.repo.GetTask(ctx, receipt.TaskID); taskErr == nil && task.Rollout.AutoRollback {
+		task, taskErr := s.repo.GetTask(ctx, receipt.TaskID)
+		if taskErr != nil {
+			return domain.DeviceReceipt{}, apperr.E(apperr.KindNotFound, "firmware.CompleteReceipt", "task not found", taskErr)
+		}
+		if task.Rollout.AutoRollback {
 			_ = s.publish(ctx, "firmware.rollback_required", receipt.ID, map[string]any{"receipt_id": receipt.ID, "device_id": receipt.DeviceID})
 		}
 	}
@@ -200,6 +204,9 @@ func (s *Service) ValidateRollout(policy domain.RolloutPolicy) error {
 	policy = policy.Normalized()
 	if policy.Strategy != "percentage" && policy.Strategy != "device_list" && policy.Strategy != "group" {
 		return apperr.E(apperr.KindInvalid, "firmware.ValidateRollout", "unsupported rollout strategy", nil)
+	}
+	if policy.Strategy == "percentage" && policy.Percentage <= 0 {
+		return apperr.E(apperr.KindInvalid, "firmware.ValidateRollout", "percentage must be positive", nil)
 	}
 	if policy.MaxConcurrent < 1 {
 		return apperr.E(apperr.KindInvalid, "firmware.ValidateRollout", "max_concurrent must be positive", nil)
