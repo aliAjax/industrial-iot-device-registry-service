@@ -2,11 +2,11 @@ package memory
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
 	"github.com/example/iot-device-management/internal/auth/domain"
+	"github.com/example/iot-device-management/internal/platform/apperr"
 )
 
 type rateBucket struct {
@@ -30,6 +30,7 @@ func NewRepository() *Repository {
 func (r *Repository) UpsertPrincipal(_ context.Context, principal domain.Principal) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	principal.Scopes = append([]string(nil), principal.Scopes...)
 	r.principals[principal.DeviceID] = principal
 	return nil
 }
@@ -39,7 +40,7 @@ func (r *Repository) FindPrincipal(_ context.Context, deviceID string) (domain.P
 	defer r.mu.RUnlock()
 	principal, exists := r.principals[deviceID]
 	if !exists {
-		return domain.Principal{}, errors.New("principal not found")
+		return domain.Principal{}, apperr.E(apperr.KindNotFound, "auth.memory.FindPrincipal", "principal not found", nil)
 	}
 	return principal, nil
 }

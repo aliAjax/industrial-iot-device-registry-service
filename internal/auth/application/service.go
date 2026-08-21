@@ -45,9 +45,9 @@ func (s *Service) RegisterDevice(ctx context.Context, deviceID, productID, crede
 	principal := domain.Principal{
 		DeviceID:       deviceID,
 		ProductID:      productID,
-		CredentialType: domain.CredentialType(credentialType),
+		CredentialType: NormalizeCredentialType(credentialType),
 		Credential:     credential,
-		Scopes:         append([]string(nil), scopes...),
+		Scopes:         normalizeScopes(scopes),
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
@@ -74,7 +74,10 @@ func (s *Service) Authenticate(ctx context.Context, deviceID, credential string,
 	}
 	principal, err := s.repo.FindPrincipal(ctx, deviceID)
 	if err != nil {
-		return domain.Principal{}, apperr.E(apperr.KindInternal, "auth.Authenticate", "device identity not found", err)
+		if apperr.IsKind(err, apperr.KindNotFound) {
+			return domain.Principal{}, apperr.E(apperr.KindUnauthorized, "auth.Authenticate", "device identity not found", nil)
+		}
+		return domain.Principal{}, apperr.E(apperr.KindInternal, "auth.Authenticate", "lookup principal", err)
 	}
 	if !s.constantEqual(principal.Credential, credential) {
 		return domain.Principal{}, apperr.E(apperr.KindUnauthorized, "auth.Authenticate", "invalid credential", nil)
@@ -133,4 +136,21 @@ func NormalizeCredentialType(value string) domain.CredentialType {
 	default:
 		return domain.CredentialToken
 	}
+}
+
+func normalizeScopes(scopes []string) []string {
+	out := make([]string, 0, len(scopes))
+	seen := make(map[string]struct{}, len(scopes))
+	for _, scope := range scopes {
+		trimmed := strings.TrimSpace(scope)
+		if trimmed == "" {
+			continue
+		}
+		if _, dup := seen[trimmed]; dup {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	return out
 }
