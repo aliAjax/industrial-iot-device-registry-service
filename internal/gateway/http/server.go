@@ -121,7 +121,7 @@ func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) readyz(w http.ResponseWriter, r *http.Request) {
 	if s.deps.Readiness != nil {
-		if err := s.deps.Readiness(r.Context()); err != nil {
+		if err := s.deps.Readiness(context.Background()); err != nil {
 			_ = jsonutil.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "not_ready", "reason": err.Error()})
 			return
 		}
