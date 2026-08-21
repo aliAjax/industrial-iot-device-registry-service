@@ -47,7 +47,7 @@ func (s *Store) Query(_ context.Context, query domain.Query) ([]domain.Point, er
 	defer s.mu.RUnlock()
 	key := seriesKey(query.DeviceID, query.Property)
 	series := s.points[key]
-	out := series[:0]
+	out := make([]domain.Point, 0, len(series))
 	for _, point := range series {
 		if point.Timestamp.Before(query.Start) || point.Timestamp.After(query.End) {
 			continue

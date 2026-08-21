@@ -40,12 +40,42 @@ func (s *Service) WriteBatch(ctx context.Context, points []domain.Point) error {
 			return apperr.E(apperr.KindInvalid, "timeseries.WriteBatch", "timestamp is too far in the future", nil)
 		}
 		point.Timestamp = point.Timestamp.UTC()
+		if point.Metadata != nil {
+			point.Metadata = cloneMetadata(point.Metadata)
+		}
 		normalized = append(normalized, point)
 	}
 	if err := s.repo.Write(ctx, normalized); err != nil {
 		return apperr.E(apperr.KindInternal, "timeseries.WriteBatch", "write points", err)
 	}
 	return nil
+}
+
+func cloneMetadata(in map[string]any) map[string]any {
+	out := make(map[string]any, len(in))
+	for key, value := range in {
+		out[key] = cloneAny(value)
+	}
+	return out
+}
+
+func cloneAny(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for key, item := range typed {
+			out[key] = cloneAny(item)
+		}
+		return out
+	case []any:
+		out := make([]any, len(typed))
+		for index, item := range typed {
+			out[index] = cloneAny(item)
+		}
+		return out
+	default:
+		return value
+	}
 }
 
 func (s *Service) Query(ctx context.Context, query domain.Query) ([]domain.Point, error) {
@@ -110,10 +140,10 @@ func (s *Service) DetectGaps(ctx context.Context, request domain.GapRequest) ([]
 		request.ExpectedInterval = time.Minute
 	}
 	if request.Start.IsZero() {
-		request.Start = s.clock.Now()
+		request.Start = s.clock.Now().Add(-24 * time.Hour)
 	}
 	if request.End.IsZero() {
-		request.End = s.clock.Now().Add(-24 * time.Hour)
+		request.End = s.clock.Now()
 	}
 	if request.End.Before(request.Start) {
 		return nil, apperr.E(apperr.KindInvalid, "timeseries.DetectGaps", "end must be after start", nil)
